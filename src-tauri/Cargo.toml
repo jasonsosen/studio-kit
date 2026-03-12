@@ -1,12 +1,12 @@
 [package]
-name = "pilates-agent"
+name = "studio-kit"
 version = "0.1.0"
-description = "AI-powered content management for Pilates studios"
+description = "Desktop content management tool"
 authors = ["Jason"]
 edition = "2021"
 
 [lib]
-name = "pilates_agent_lib"
+name = "studio_kit_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
