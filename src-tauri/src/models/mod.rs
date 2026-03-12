@@ -114,9 +114,70 @@ pub struct GeneratedCaption {
     pub hooks: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum AiProvider {
+    Claude,
+    OpenAI,
+}
+
+impl AiProvider {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+            Self::OpenAI => "openai",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "openai" => Self::OpenAI,
+            _ => Self::Claude,
+        }
+    }
+
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::Claude => "Claude (Anthropic)",
+            Self::OpenAI => "GPT-4o mini (OpenAI)",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageStats {
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+    pub total_tokens: u32,
+    pub model: String,
+    pub provider: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageRecord {
+    pub id: String,
+    pub timestamp: DateTime<Local>,
+    pub provider: String,
+    pub model: String,
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+    pub total_tokens: u32,
+    pub cost_usd: f64,
+    pub cost_jpy: f64,
+    pub exchange_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExchangeRate {
+    pub rate: f64,
+    pub updated_at: DateTime<Local>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub claude_api_key: Option<String>,
+    pub openai_api_key: Option<String>,
+    pub ai_provider: AiProvider,
     pub studio_name: String,
     pub studio_location: String,
     pub target_audience: String,
@@ -126,6 +187,8 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             claude_api_key: None,
+            openai_api_key: None,
+            ai_provider: AiProvider::Claude,
             studio_name: "ピラティススタジオ".to_string(),
             studio_location: "大阪".to_string(),
             target_audience: "30-40代女性".to_string(),

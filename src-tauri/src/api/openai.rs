@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::{GeneratedCaption, UsageStats};
 
-const CLAUDE_API_URL: &str = "https://api.anthropic.com/v1/messages";
+const OPENAI_API_URL: &str = "https://api.openai.com/v1/chat/completions";
 
 #[derive(Serialize)]
-struct ClaudeRequest {
+struct OpenAIRequest {
     model: String,
-    max_tokens: u32,
     messages: Vec<Message>,
+    max_tokens: u32,
 }
 
 #[derive(Serialize)]
@@ -20,28 +20,34 @@ struct Message {
 }
 
 #[derive(Deserialize)]
-struct ClaudeResponse {
-    content: Vec<ContentBlock>,
-    usage: ClaudeUsage,
+struct OpenAIResponse {
+    choices: Vec<Choice>,
+    usage: Usage,
 }
 
 #[derive(Deserialize)]
-struct ContentBlock {
-    text: String,
+struct Choice {
+    message: ResponseMessage,
 }
 
 #[derive(Deserialize)]
-struct ClaudeUsage {
-    input_tokens: u32,
-    output_tokens: u32,
+struct ResponseMessage {
+    content: String,
 }
 
-pub struct ClaudeClient {
+#[derive(Deserialize)]
+struct Usage {
+    prompt_tokens: u32,
+    completion_tokens: u32,
+    total_tokens: u32,
+}
+
+pub struct OpenAIClient {
     client: Client,
     api_key: String,
 }
 
-impl ClaudeClient {
+impl OpenAIClient {
     pub fn new(api_key: String) -> Self {
         Self {
             client: Client::new(),
@@ -82,8 +88,8 @@ impl ClaudeClient {
             target_audience = target_audience,
         );
 
-        let request = ClaudeRequest {
-            model: "claude-sonnet-4-20250514".to_string(),
+        let request = OpenAIRequest {
+            model: "gpt-4o-mini".to_string(),
             max_tokens: 1024,
             messages: vec![Message {
                 role: "user".to_string(),
@@ -93,35 +99,42 @@ impl ClaudeClient {
 
         let response = self
             .client
-            .post(CLAUDE_API_URL)
-            .header("x-api-key", &self.api_key)
-            .header("anthropic-version", "2023-06-01")
-            .header("content-type", "application/json")
+            .post(OPENAI_API_URL)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Content-Type", "application/json")
             .json(&request)
             .send()
             .await?;
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow!("Claude API error: {}", error_text));
+            return Err(anyhow!("OpenAI API error: {}", error_text));
         }
 
-        let claude_response: ClaudeResponse = response.json().await?;
-        let text = claude_response
-            .content
+        let openai_response: OpenAIResponse = response.json().await?;
+        let text = openai_response
+            .choices
             .first()
-            .map(|c| c.text.clone())
-            .ok_or_else(|| anyhow!("Empty response from Claude"))?;
+            .map(|c| c.message.content.clone())
+            .ok_or_else(|| anyhow!("Empty response from OpenAI"))?;
 
-        let generated: GeneratedCaption = serde_json::from_str(&text)
-            .map_err(|e| anyhow!("Failed to parse Claude response: {}. Raw: {}", e, text))?;
+        // Clean up potential markdown code blocks
+        let clean_text = text
+            .trim()
+            .trim_start_matches("```json")
+            .trim_start_matches("```")
+            .trim_end_matches("```")
+            .trim();
+
+        let generated: GeneratedCaption = serde_json::from_str(clean_text)
+            .map_err(|e| anyhow!("Failed to parse OpenAI response: {}. Raw: {}", e, text))?;
 
         let usage = UsageStats {
-            prompt_tokens: claude_response.usage.input_tokens,
-            completion_tokens: claude_response.usage.output_tokens,
-            total_tokens: claude_response.usage.input_tokens + claude_response.usage.output_tokens,
-            model: "claude-sonnet-4-20250514".to_string(),
-            provider: "claude".to_string(),
+            prompt_tokens: openai_response.usage.prompt_tokens,
+            completion_tokens: openai_response.usage.completion_tokens,
+            total_tokens: openai_response.usage.total_tokens,
+            model: "gpt-4o-mini".to_string(),
+            provider: "openai".to_string(),
         };
 
         Ok((generated, usage))
@@ -164,8 +177,8 @@ impl ClaudeClient {
             existing = existing,
         );
 
-        let request = ClaudeRequest {
-            model: "claude-sonnet-4-20250514".to_string(),
+        let request = OpenAIRequest {
+            model: "gpt-4o-mini".to_string(),
             max_tokens: 512,
             messages: vec![Message {
                 role: "user".to_string(),
@@ -175,35 +188,42 @@ impl ClaudeClient {
 
         let response = self
             .client
-            .post(CLAUDE_API_URL)
-            .header("x-api-key", &self.api_key)
-            .header("anthropic-version", "2023-06-01")
-            .header("content-type", "application/json")
+            .post(OPENAI_API_URL)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Content-Type", "application/json")
             .json(&request)
             .send()
             .await?;
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow!("Claude API error: {}", error_text));
+            return Err(anyhow!("OpenAI API error: {}", error_text));
         }
 
-        let claude_response: ClaudeResponse = response.json().await?;
-        let text = claude_response
-            .content
+        let openai_response: OpenAIResponse = response.json().await?;
+        let text = openai_response
+            .choices
             .first()
-            .map(|c| c.text.clone())
-            .ok_or_else(|| anyhow!("Empty response from Claude"))?;
+            .map(|c| c.message.content.clone())
+            .ok_or_else(|| anyhow!("Empty response from OpenAI"))?;
 
-        let topics: Vec<String> = serde_json::from_str(&text)
+        // Clean up potential markdown code blocks
+        let clean_text = text
+            .trim()
+            .trim_start_matches("```json")
+            .trim_start_matches("```")
+            .trim_end_matches("```")
+            .trim();
+
+        let topics: Vec<String> = serde_json::from_str(clean_text)
             .map_err(|e| anyhow!("Failed to parse topics: {}. Raw: {}", e, text))?;
 
         let usage = UsageStats {
-            prompt_tokens: claude_response.usage.input_tokens,
-            completion_tokens: claude_response.usage.output_tokens,
-            total_tokens: claude_response.usage.input_tokens + claude_response.usage.output_tokens,
-            model: "claude-sonnet-4-20250514".to_string(),
-            provider: "claude".to_string(),
+            prompt_tokens: openai_response.usage.prompt_tokens,
+            completion_tokens: openai_response.usage.completion_tokens,
+            total_tokens: openai_response.usage.total_tokens,
+            model: "gpt-4o-mini".to_string(),
+            provider: "openai".to_string(),
         };
 
         Ok((topics, usage))

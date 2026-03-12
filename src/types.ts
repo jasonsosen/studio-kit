@@ -22,11 +22,24 @@ export interface DailySummary {
   contents: Content[];
 }
 
+export type AiProvider = 'claude' | 'openai';
+
 export interface AppConfig {
   claude_api_key: string | null;
+  openai_api_key: string | null;
+  ai_provider: AiProvider;
   studio_name: string;
   studio_location: string;
   target_audience: string;
+}
+
+export interface UsageSummary {
+  today_tokens: number;
+  today_cost_jpy: number;
+  month_tokens: number;
+  month_cost_jpy: number;
+  total_tokens: number;
+  total_cost_jpy: number;
 }
 
 export const STATUS_LABELS: Record<ContentStatus, string> = {

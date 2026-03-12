@@ -5,11 +5,11 @@ mod models;
 mod scheduler;
 
 use agent::{Agent, DailySummary};
-use db::Database;
+use db::{Database, UsageSummary};
 use models::{AppConfig, Content, ContentStatus, ContentType};
 use scheduler::{Scheduler, SchedulerNotification};
 
-use chrono::{Local, NaiveDate};
+use chrono::NaiveDate;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{Manager, State};
@@ -122,6 +122,16 @@ async fn has_claude_key(state: State<'_, AppState>) -> Result<bool, String> {
 }
 
 #[tauri::command]
+async fn has_ai_configured(state: State<'_, AppState>) -> Result<bool, String> {
+    Ok(state.agent.lock().await.has_ai_configured())
+}
+
+#[tauri::command]
+async fn get_usage_summary(state: State<'_, AppState>) -> Result<UsageSummary, String> {
+    state.db.get_usage_summary().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn mark_as_posted(state: State<'_, AppState>, content_id: String) -> Result<(), String> {
     let mut content = state
         .db
@@ -194,6 +204,8 @@ pub fn run() {
             get_config,
             save_config,
             has_claude_key,
+            has_ai_configured,
+            get_usage_summary,
             mark_as_posted,
             get_contents_by_month,
             check_today_notification,

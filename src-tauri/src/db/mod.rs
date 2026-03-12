@@ -3,8 +3,9 @@ use chrono::{Local, NaiveDate};
 use rusqlite::{params, Connection};
 use std::path::PathBuf;
 use std::sync::Mutex;
+use uuid::Uuid;
 
-use crate::models::{AppConfig, Content, ContentStatus, ContentType};
+use crate::models::{AiProvider, AppConfig, Content, ContentStatus, ContentType, UsageRecord};
 
 pub struct Database {
     conn: Mutex<Connection>,
@@ -44,6 +45,27 @@ impl Database {
 
             CREATE INDEX IF NOT EXISTS idx_contents_date ON contents(scheduled_date);
             CREATE INDEX IF NOT EXISTS idx_contents_status ON contents(status);
+
+            CREATE TABLE IF NOT EXISTS usage_records (
+                id TEXT PRIMARY KEY,
+                timestamp TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                model TEXT NOT NULL,
+                prompt_tokens INTEGER NOT NULL,
+                completion_tokens INTEGER NOT NULL,
+                total_tokens INTEGER NOT NULL,
+                cost_usd REAL NOT NULL,
+                cost_jpy REAL NOT NULL,
+                exchange_rate REAL NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_records(timestamp);
+
+            CREATE TABLE IF NOT EXISTS exchange_rate_cache (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                rate REAL NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             "#,
         )?;
         Ok(())
@@ -155,6 +177,8 @@ impl Database {
             let (key, value) = row?;
             match key.as_str() {
                 "claude_api_key" => config.claude_api_key = Some(value),
+                "openai_api_key" => config.openai_api_key = Some(value),
+                "ai_provider" => config.ai_provider = AiProvider::from_str(&value),
                 "studio_name" => config.studio_name = value,
                 "studio_location" => config.studio_location = value,
                 "target_audience" => config.target_audience = value,
@@ -192,4 +216,92 @@ impl Database {
                 .with_timezone(&Local),
         })
     }
+
+    pub fn insert_usage_record(&self, record: &UsageRecord) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            r#"INSERT INTO usage_records (id, timestamp, provider, model, prompt_tokens, completion_tokens, total_tokens, cost_usd, cost_jpy, exchange_rate)
+               VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"#,
+            params![
+                record.id,
+                record.timestamp.to_rfc3339(),
+                record.provider,
+                record.model,
+                record.prompt_tokens,
+                record.completion_tokens,
+                record.total_tokens,
+                record.cost_usd,
+                record.cost_jpy,
+                record.exchange_rate,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_usage_summary(&self) -> Result<UsageSummary> {
+        let conn = self.conn.lock().unwrap();
+
+        let today = Local::now().date_naive().to_string();
+        let month_start = Local::now().date_naive().format("%Y-%m-01").to_string();
+
+        let today_stats: (u32, f64) = conn.query_row(
+            "SELECT COALESCE(SUM(total_tokens), 0), COALESCE(SUM(cost_jpy), 0) FROM usage_records WHERE DATE(timestamp) = ?1",
+            params![today],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        let month_stats: (u32, f64) = conn.query_row(
+            "SELECT COALESCE(SUM(total_tokens), 0), COALESCE(SUM(cost_jpy), 0) FROM usage_records WHERE timestamp >= ?1",
+            params![month_start],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        let total_stats: (u32, f64) = conn.query_row(
+            "SELECT COALESCE(SUM(total_tokens), 0), COALESCE(SUM(cost_jpy), 0) FROM usage_records",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        Ok(UsageSummary {
+            today_tokens: today_stats.0,
+            today_cost_jpy: today_stats.1,
+            month_tokens: month_stats.0,
+            month_cost_jpy: month_stats.1,
+            total_tokens: total_stats.0,
+            total_cost_jpy: total_stats.1,
+        })
+    }
+
+    pub fn get_cached_exchange_rate(&self) -> Result<Option<(f64, String)>> {
+        let conn = self.conn.lock().unwrap();
+        let result = conn.query_row(
+            "SELECT rate, updated_at FROM exchange_rate_cache WHERE id = 1",
+            [],
+            |row| Ok((row.get::<_, f64>(0)?, row.get::<_, String>(1)?)),
+        );
+        match result {
+            Ok(data) => Ok(Some(data)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn set_cached_exchange_rate(&self, rate: f64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT OR REPLACE INTO exchange_rate_cache (id, rate, updated_at) VALUES (1, ?1, ?2)",
+            params![rate, Local::now().to_rfc3339()],
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct UsageSummary {
+    pub today_tokens: u32,
+    pub today_cost_jpy: f64,
+    pub month_tokens: u32,
+    pub month_cost_jpy: f64,
+    pub total_tokens: u32,
+    pub total_cost_jpy: f64,
 }
