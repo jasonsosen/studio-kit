@@ -1,28 +1,103 @@
 # Studio Kit
 
-Desktop content management tool with AI-powered text generation.
+AIを活用したコンテンツ管理デスクトップアプリ
 
-## Features
+## 機能
 
-- Calendar view for scheduling
-- AI text generation (Claude API)
-- Weekly planning
-- Auto-launch on startup
+- カレンダーで投稿スケジュール管理
+- AIによる文章自動生成（Claude API）
+- 週間プラン一括作成
+- Mac起動時に自動起動
 
-## Development
+---
+
+## インストール方法
+
+### ステップ1: ダウンロード
+
+1. [Releases ページ](https://github.com/jasonsosen/studio-kit/releases/latest) を開く
+2. **`Studio.Kit_x.x.x_aarch64.dmg`** をクリックしてダウンロード
+
+### ステップ2: インストール
+
+1. ダウンロードした `.dmg` ファイルをダブルクリック
+2. 開いたウィンドウで **Studio Kit** を **Applications** フォルダにドラッグ
+
+### ステップ3: 初回起動
+
+> ⚠️ App Store以外のアプリなので、初回は特別な開き方が必要です
+
+1. **Finder** → **アプリケーション** フォルダを開く
+2. **Studio Kit** を **右クリック**（またはControlを押しながらクリック）
+3. メニューから **「開く」** を選択
+4. 「開いてもよろしいですか？」と聞かれたら **「開く」** をクリック
+
+※ 2回目以降は普通にダブルクリックで開けます
+
+### ステップ4: 初期設定
+
+1. アプリが起動したら、右上の **⚙️ 設定** をクリック
+2. **スタジオ名**、**特徴**、**ターゲット** を入力
+3. **Claude API Key** を入力（[取得はこちら](https://console.anthropic.com/)）
+4. **保存** をクリック
+
+---
+
+## 使い方
+
+### 投稿を作成する
+
+1. カレンダーの日付をクリック
+2. トピックを入力して **保存**
+3. **🤖 AIで生成** をクリック → キャプションが自動生成されます
+
+### 週間プランを作成する
+
+1. **🤖 週間プラン生成** をクリック
+2. AIが今週のトピックを7つ提案
+3. 各投稿を編集してキャプションを生成
+
+---
+
+## 開機自動起動を設定する（オプション）
+
+Macを起動するたびにアプリを自動で開きたい場合：
+
+1. **システム設定** を開く
+2. **一般** → **ログイン項目** を選択
+3. **+** ボタンをクリック
+4. **アプリケーション** から **Studio Kit** を選んで追加
+
+---
+
+## トラブルシューティング
+
+### 「開発元を検証できません」と表示される
+
+→ ステップ3の「右クリック → 開く」の方法で開いてください
+
+### APIキーが正しいのに生成できない
+
+→ [Anthropic Console](https://console.anthropic.com/) でAPIキーの残高を確認してください
+
+---
+
+## 開発者向け
+
+### 開発環境で起動
 
 ```bash
 npm install
 npm run tauri dev
 ```
 
-## Build
+### ビルド
 
 ```bash
 npm run tauri build
 ```
 
-## Tech Stack
+### 技術スタック
 
 - React + TypeScript + Tailwind CSS
 - Rust + Tauri 2.0
