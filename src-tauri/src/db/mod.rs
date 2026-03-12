@@ -121,7 +121,7 @@ impl Database {
         )?;
         let rows = stmt.query_map(params![start.to_string(), end.to_string()], |row| {
             Self::row_to_content(row)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+                .map_err(|e| rusqlite::Error::InvalidParameterName(e.to_string()))
         })?;
 
         let mut contents = Vec::new();
