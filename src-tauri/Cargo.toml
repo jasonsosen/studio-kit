@@ -1,0 +1,46 @@
+[package]
+name = "pilates-agent"
+version = "0.1.0"
+description = "AI-powered content management for Pilates studios"
+authors = ["Jason"]
+edition = "2021"
+
+[lib]
+name = "pilates_agent_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP client for Claude API
+reqwest = { version = "0.12", features = ["json"] }
+
+# SQLite
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# UUID for content IDs
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Environment variables
+dotenvy = "0.15"
+
+# Get home directory
+dirs = "5"
+
