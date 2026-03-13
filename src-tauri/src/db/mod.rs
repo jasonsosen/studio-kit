@@ -12,6 +12,7 @@ pub struct Database {
 }
 
 const DB_VERSION: i32 = 2;
+const CONTENT_COLUMNS: &str = "id, scheduled_date, content_type, topic, caption, hashtags, status, notes, media_path, media_type, thumbnail_path, subtitle_path, created_at, updated_at";
 
 impl Database {
     pub fn new(path: PathBuf) -> Result<Self> {
@@ -89,6 +90,7 @@ impl Database {
                 media_path TEXT,
                 media_type TEXT,
                 thumbnail_path TEXT,
+                subtitle_path TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -204,7 +206,7 @@ impl Database {
 
     pub fn get_content(&self, id: &str) -> Result<Option<Content>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare("SELECT * FROM contents WHERE id = ?1")?;
+        let mut stmt = conn.prepare(&format!("SELECT {} FROM contents WHERE id = ?1", CONTENT_COLUMNS))?;
         let mut rows = stmt.query(params![id])?;
 
         if let Some(row) = rows.next()? {
@@ -220,9 +222,10 @@ impl Database {
         end: NaiveDate,
     ) -> Result<Vec<Content>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT * FROM contents WHERE scheduled_date >= ?1 AND scheduled_date <= ?2 ORDER BY scheduled_date",
-        )?;
+        let mut stmt = conn.prepare(&format!(
+            "SELECT {} FROM contents WHERE scheduled_date >= ?1 AND scheduled_date <= ?2 ORDER BY scheduled_date",
+            CONTENT_COLUMNS
+        ))?;
         let rows = stmt.query_map(params![start.to_string(), end.to_string()], |row| {
             Self::row_to_content(row)
                 .map_err(|e| rusqlite::Error::InvalidParameterName(e.to_string()))
@@ -284,21 +287,23 @@ impl Database {
         use chrono::DateTime;
 
         Ok(Content {
-            id: row.get(0)?,
-            scheduled_date: NaiveDate::parse_from_str(&row.get::<_, String>(1)?, "%Y-%m-%d")?,
-            content_type: ContentType::from_str(&row.get::<_, String>(2)?),
-            topic: row.get(3)?,
-            caption: row.get(4)?,
-            hashtags: row.get(5)?,
-            status: ContentStatus::from_str(&row.get::<_, String>(6)?),
-            notes: row.get(7)?,
-            media_path: row.get(8)?,
-            media_type: row.get::<_, Option<String>>(9)?.map(|s| MediaType::from_str(&s)),
-            thumbnail_path: row.get(10)?,
-            subtitle_path: row.get(11)?,
-            created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(12)?)?
+            id: row.get("id")?,
+            scheduled_date: NaiveDate::parse_from_str(&row.get::<_, String>("scheduled_date")?, "%Y-%m-%d")?,
+            content_type: ContentType::from_str(&row.get::<_, String>("content_type")?),
+            topic: row.get("topic")?,
+            caption: row.get("caption")?,
+            hashtags: row.get("hashtags")?,
+            status: ContentStatus::from_str(&row.get::<_, String>("status")?),
+            notes: row.get("notes")?,
+            media_path: row.get("media_path")?,
+            media_type: row
+                .get::<_, Option<String>>("media_type")?
+                .map(|s| MediaType::from_str(&s)),
+            thumbnail_path: row.get("thumbnail_path")?,
+            subtitle_path: row.get("subtitle_path")?,
+            created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("created_at")?)?
                 .with_timezone(&Local),
-            updated_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(13)?)?
+            updated_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("updated_at")?)?
                 .with_timezone(&Local),
         })
     }
