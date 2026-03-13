@@ -45,6 +45,12 @@ fn get_thumbnails_dir() -> PathBuf {
     thumb_dir
 }
 
+fn get_subtitles_dir() -> PathBuf {
+    let subs_dir = get_data_dir().join("subtitles");
+    std::fs::create_dir_all(&subs_dir).ok();
+    subs_dir
+}
+
 #[tauri::command]
 async fn get_week_contents(state: State<'_, AppState>) -> Result<Vec<Content>, String> {
     state
@@ -315,6 +321,114 @@ fn get_media_base_path() -> String {
     get_data_dir().to_string_lossy().to_string()
 }
 
+#[derive(serde::Serialize)]
+pub struct SubtitleResult {
+    pub content: Content,
+    pub subtitle_text: String,
+}
+
+#[tauri::command]
+async fn generate_subtitles(
+    state: State<'_, AppState>,
+    content_id: String,
+    language: Option<String>,
+) -> Result<SubtitleResult, String> {
+    let content = state
+        .db
+        .get_content(&content_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Content not found")?;
+
+    let media_path = content.media_path.as_ref().ok_or("No media attached")?;
+    
+    if content.media_type != Some(MediaType::Video) {
+        return Err("Subtitles can only be generated for video files".to_string());
+    }
+
+    let subs_dir = get_subtitles_dir();
+    let output_name = format!("{}", content_id);
+    let lang = language.unwrap_or_else(|| "ja".to_string());
+    
+    let result = Command::new("whisper")
+        .args([
+            media_path,
+            "--model", "base",
+            "--language", &lang,
+            "--output_format", "srt",
+            "--output_dir", subs_dir.to_str().unwrap(),
+            "-o", &output_name,
+        ])
+        .output();
+
+    match result {
+        Ok(output) if output.status.success() => {
+            let srt_path = subs_dir.join(format!("{}.srt", output_name));
+            
+            if !srt_path.exists() {
+                return Err("Whisper completed but SRT file not found".to_string());
+            }
+
+            let subtitle_text = std::fs::read_to_string(&srt_path)
+                .map_err(|e| format!("Failed to read subtitle file: {}", e))?;
+
+            let mut updated_content = content;
+            updated_content.subtitle_path = Some(srt_path.to_string_lossy().to_string());
+            
+            state.db.update_content(&updated_content).map_err(|e| e.to_string())?;
+            
+            Ok(SubtitleResult {
+                content: updated_content,
+                subtitle_text,
+            })
+        }
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(format!("Whisper failed: {}", stderr))
+        }
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                Err("Whisper not found. Install with: pip install openai-whisper".to_string())
+            } else {
+                Err(format!("Failed to run whisper: {}", e))
+            }
+        }
+    }
+}
+
+#[tauri::command]
+async fn remove_subtitles(state: State<'_, AppState>, content_id: String) -> Result<Content, String> {
+    let mut content = state
+        .db
+        .get_content(&content_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Content not found")?;
+
+    if let Some(ref sub_path) = content.subtitle_path {
+        let _ = std::fs::remove_file(sub_path);
+    }
+
+    content.subtitle_path = None;
+    state.db.update_content(&content).map_err(|e| e.to_string())?;
+    Ok(content)
+}
+
+#[tauri::command]
+async fn get_subtitle_content(content_id: String, state: State<'_, AppState>) -> Result<Option<String>, String> {
+    let content = state
+        .db
+        .get_content(&content_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Content not found")?;
+
+    if let Some(ref sub_path) = content.subtitle_path {
+        let text = std::fs::read_to_string(sub_path)
+            .map_err(|e| format!("Failed to read subtitle: {}", e))?;
+        Ok(Some(text))
+    } else {
+        Ok(None)
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let db_path = get_db_path();
@@ -352,6 +466,9 @@ pub fn run() {
             upload_media,
             remove_media,
             get_media_base_path,
+            generate_subtitles,
+            remove_subtitles,
+            get_subtitle_content,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

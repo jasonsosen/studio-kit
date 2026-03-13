@@ -76,6 +76,7 @@ impl Database {
         Self::migrate_add_column(&conn, "contents", "media_path", "TEXT")?;
         Self::migrate_add_column(&conn, "contents", "media_type", "TEXT")?;
         Self::migrate_add_column(&conn, "contents", "thumbnail_path", "TEXT")?;
+        Self::migrate_add_column(&conn, "contents", "subtitle_path", "TEXT")?;
         
         Ok(())
     }
@@ -92,8 +93,8 @@ impl Database {
     pub fn insert_content(&self, content: &Content) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            r#"INSERT INTO contents (id, scheduled_date, content_type, topic, caption, hashtags, status, notes, media_path, media_type, thumbnail_path, created_at, updated_at)
-               VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)"#,
+            r#"INSERT INTO contents (id, scheduled_date, content_type, topic, caption, hashtags, status, notes, media_path, media_type, thumbnail_path, subtitle_path, created_at, updated_at)
+               VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"#,
             params![
                 content.id,
                 content.scheduled_date.to_string(),
@@ -106,6 +107,7 @@ impl Database {
                 content.media_path,
                 content.media_type.as_ref().map(|t| t.as_str()),
                 content.thumbnail_path,
+                content.subtitle_path,
                 content.created_at.to_rfc3339(),
                 content.updated_at.to_rfc3339(),
             ],
@@ -127,7 +129,8 @@ impl Database {
                 media_path = ?9,
                 media_type = ?10,
                 thumbnail_path = ?11,
-                updated_at = ?12
+                subtitle_path = ?12,
+                updated_at = ?13
                WHERE id = ?1"#,
             params![
                 content.id,
@@ -141,6 +144,7 @@ impl Database {
                 content.media_path,
                 content.media_type.as_ref().map(|t| t.as_str()),
                 content.thumbnail_path,
+                content.subtitle_path,
                 Local::now().to_rfc3339(),
             ],
         )?;
@@ -240,9 +244,10 @@ impl Database {
             media_path: row.get(8)?,
             media_type: row.get::<_, Option<String>>(9)?.map(|s| MediaType::from_str(&s)),
             thumbnail_path: row.get(10)?,
-            created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(11)?)?
+            subtitle_path: row.get(11)?,
+            created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(12)?)?
                 .with_timezone(&Local),
-            updated_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(12)?)?
+            updated_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(13)?)?
                 .with_timezone(&Local),
         })
     }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Content, ContentStatus, ContentType, STATUS_LABELS, TYPE_LABELS } from '../types';
 import { MediaUploader } from './MediaUploader';
+import { SubtitleGenerator } from './SubtitleGenerator';
 
 interface Props {
   content: Content | null;
@@ -246,12 +247,20 @@ export function ContentEditor({ content, selectedDate, onSave, onClose }: Props)
               </div>
 
               {currentContent && (
-                <MediaUploader
-                  content={currentContent}
-                  onMediaChange={(updated) => {
-                    setCurrentContent(updated);
-                  }}
-                />
+                <>
+                  <MediaUploader
+                    content={currentContent}
+                    onMediaChange={(updated) => {
+                      setCurrentContent(updated);
+                    }}
+                  />
+                  <SubtitleGenerator
+                    content={currentContent}
+                    onSubtitleChange={(updated) => {
+                      setCurrentContent(updated);
+                    }}
+                  />
+                </>
               )}
             </>
           )}

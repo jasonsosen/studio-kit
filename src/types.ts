@@ -14,8 +14,14 @@ export interface Content {
   media_path: string | null;
   media_type: MediaType | null;
   thumbnail_path: string | null;
+  subtitle_path: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface SubtitleResult {
+  content: Content;
+  subtitle_text: string;
 }
 
 export interface DailySummary {

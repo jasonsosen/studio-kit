@@ -112,6 +112,7 @@ pub struct Content {
     pub media_path: Option<String>,
     pub media_type: Option<MediaType>,
     pub thumbnail_path: Option<String>,
+    pub subtitle_path: Option<String>,
     pub created_at: DateTime<Local>,
     pub updated_at: DateTime<Local>,
 }
@@ -131,6 +132,7 @@ impl Content {
             media_path: None,
             media_type: None,
             thumbnail_path: None,
+            subtitle_path: None,
             created_at: now,
             updated_at: now,
         }
