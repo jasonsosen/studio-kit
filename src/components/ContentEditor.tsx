@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Content, ContentStatus, ContentType, STATUS_LABELS, TYPE_LABELS } from '../types';
+import { MediaUploader } from './MediaUploader';
 
 interface Props {
   content: Content | null;
@@ -18,11 +19,13 @@ export function ContentEditor({ content, selectedDate, onSave, onClose }: Props)
   const [notes, setNotes] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasClaudeKey, setHasClaudeKey] = useState(false);
+  const [currentContent, setCurrentContent] = useState<Content | null>(content);
 
   const isEditing = !!content;
 
   useEffect(() => {
     checkClaudeKey();
+    setCurrentContent(content);
     if (content) {
       setTopic(content.topic);
       setContentType(content.content_type);
@@ -241,6 +244,15 @@ export function ContentEditor({ content, selectedDate, onSave, onClose }: Props)
                   className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-primary-500"
                 />
               </div>
+
+              {currentContent && (
+                <MediaUploader
+                  content={currentContent}
+                  onMediaChange={(updated) => {
+                    setCurrentContent(updated);
+                  }}
+                />
+              )}
             </>
           )}
         </div>

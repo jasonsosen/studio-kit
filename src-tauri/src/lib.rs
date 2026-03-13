@@ -6,7 +6,7 @@ mod scheduler;
 
 use agent::{Agent, DailySummary};
 use db::{Database, UsageSummary};
-use models::{AppConfig, Content, ContentStatus, ContentType};
+use models::{AppConfig, Content, ContentStatus, ContentType, MediaType};
 use scheduler::{Scheduler, SchedulerNotification};
 
 use chrono::NaiveDate;
@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{Manager, State};
 use tokio::sync::Mutex;
+use std::process::Command;
 
 struct AppState {
     db: Arc<Database>,
@@ -21,11 +22,27 @@ struct AppState {
     scheduler: Scheduler,
 }
 
-fn get_db_path() -> PathBuf {
+fn get_data_dir() -> PathBuf {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
     let data_dir = home.join(".studio-kit");
     std::fs::create_dir_all(&data_dir).ok();
-    data_dir.join("data.db")
+    data_dir
+}
+
+fn get_db_path() -> PathBuf {
+    get_data_dir().join("data.db")
+}
+
+fn get_media_dir() -> PathBuf {
+    let media_dir = get_data_dir().join("media");
+    std::fs::create_dir_all(&media_dir).ok();
+    media_dir
+}
+
+fn get_thumbnails_dir() -> PathBuf {
+    let thumb_dir = get_data_dir().join("thumbnails");
+    std::fs::create_dir_all(&thumb_dir).ok();
+    thumb_dir
 }
 
 #[tauri::command]
@@ -178,6 +195,126 @@ async fn check_upcoming_notification(
     Ok(state.scheduler.get_upcoming_reminder())
 }
 
+#[tauri::command]
+async fn upload_media(
+    state: State<'_, AppState>,
+    content_id: String,
+    file_path: String,
+) -> Result<Content, String> {
+    let source_path = PathBuf::from(&file_path);
+    if !source_path.exists() {
+        return Err("File not found".to_string());
+    }
+
+    let extension = source_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let media_type = match extension.as_str() {
+        "mp4" | "mov" | "avi" | "mkv" | "webm" => MediaType::Video,
+        "jpg" | "jpeg" | "png" | "gif" | "webp" | "heic" => MediaType::Image,
+        _ => return Err(format!("Unsupported file type: {}", extension)),
+    };
+
+    let media_dir = get_media_dir();
+    let file_name = format!("{}_{}.{}", content_id, chrono::Utc::now().timestamp(), extension);
+    let dest_path = media_dir.join(&file_name);
+
+    std::fs::copy(&source_path, &dest_path).map_err(|e| format!("Failed to copy file: {}", e))?;
+
+    let thumbnail_path = if media_type == MediaType::Video {
+        generate_video_thumbnail(&dest_path, &content_id)?
+    } else {
+        generate_image_thumbnail(&dest_path, &content_id)?
+    };
+
+    let mut content = state
+        .db
+        .get_content(&content_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Content not found")?;
+
+    content.media_path = Some(dest_path.to_string_lossy().to_string());
+    content.media_type = Some(media_type);
+    content.thumbnail_path = thumbnail_path;
+
+    state.db.update_content(&content).map_err(|e| e.to_string())?;
+    Ok(content)
+}
+
+fn generate_video_thumbnail(video_path: &PathBuf, content_id: &str) -> Result<Option<String>, String> {
+    let thumb_dir = get_thumbnails_dir();
+    let thumb_path = thumb_dir.join(format!("{}_thumb.jpg", content_id));
+
+    let result = Command::new("ffmpeg")
+        .args([
+            "-i", video_path.to_str().unwrap(),
+            "-ss", "00:00:01",
+            "-vframes", "1",
+            "-vf", "scale=320:-1",
+            "-y",
+            thumb_path.to_str().unwrap(),
+        ])
+        .output();
+
+    match result {
+        Ok(output) if output.status.success() => {
+            Ok(Some(thumb_path.to_string_lossy().to_string()))
+        }
+        _ => Ok(None),
+    }
+}
+
+fn generate_image_thumbnail(image_path: &PathBuf, content_id: &str) -> Result<Option<String>, String> {
+    let thumb_dir = get_thumbnails_dir();
+    let thumb_path = thumb_dir.join(format!("{}_thumb.jpg", content_id));
+
+    let result = Command::new("sips")
+        .args([
+            "-z", "320", "320",
+            "--out", thumb_path.to_str().unwrap(),
+            image_path.to_str().unwrap(),
+        ])
+        .output();
+
+    match result {
+        Ok(output) if output.status.success() => {
+            Ok(Some(thumb_path.to_string_lossy().to_string()))
+        }
+        _ => Ok(None),
+    }
+}
+
+#[tauri::command]
+async fn remove_media(state: State<'_, AppState>, content_id: String) -> Result<Content, String> {
+    let mut content = state
+        .db
+        .get_content(&content_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Content not found")?;
+
+    if let Some(ref media_path) = content.media_path {
+        let _ = std::fs::remove_file(media_path);
+    }
+    if let Some(ref thumb_path) = content.thumbnail_path {
+        let _ = std::fs::remove_file(thumb_path);
+    }
+
+    content.media_path = None;
+    content.media_type = None;
+    content.thumbnail_path = None;
+
+    state.db.update_content(&content).map_err(|e| e.to_string())?;
+    Ok(content)
+}
+
+#[tauri::command]
+fn get_media_base_path() -> String {
+    get_data_dir().to_string_lossy().to_string()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let db_path = get_db_path();
@@ -188,6 +325,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .manage(AppState {
             db,
             agent: Mutex::new(agent),
@@ -210,6 +349,9 @@ pub fn run() {
             get_contents_by_month,
             check_today_notification,
             check_upcoming_notification,
+            upload_media,
+            remove_media,
+            get_media_base_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

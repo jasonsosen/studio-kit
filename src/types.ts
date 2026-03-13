@@ -1,5 +1,6 @@
 export type ContentStatus = 'planned' | 'ai_generated' | 'ready_to_post' | 'posted' | 'skipped';
 export type ContentType = 'reel' | 'post' | 'story' | 'carousel';
+export type MediaType = 'video' | 'image';
 
 export interface Content {
   id: string;
@@ -10,6 +11,9 @@ export interface Content {
   hashtags: string | null;
   status: ContentStatus;
   notes: string | null;
+  media_path: string | null;
+  media_type: MediaType | null;
+  thumbnail_path: string | null;
   created_at: string;
   updated_at: string;
 }

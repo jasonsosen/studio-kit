@@ -54,6 +54,30 @@ pub enum ContentType {
     Carousel,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaType {
+    Video,
+    Image,
+}
+
+impl MediaType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Video => "video",
+            Self::Image => "image",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "video" => Self::Video,
+            "image" => Self::Image,
+            _ => Self::Image,
+        }
+    }
+}
+
 impl ContentType {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -85,6 +109,9 @@ pub struct Content {
     pub hashtags: Option<String>,
     pub status: ContentStatus,
     pub notes: Option<String>,
+    pub media_path: Option<String>,
+    pub media_type: Option<MediaType>,
+    pub thumbnail_path: Option<String>,
     pub created_at: DateTime<Local>,
     pub updated_at: DateTime<Local>,
 }
@@ -101,6 +128,9 @@ impl Content {
             hashtags: None,
             status: ContentStatus::Planned,
             notes: None,
+            media_path: None,
+            media_type: None,
+            thumbnail_path: None,
             created_at: now,
             updated_at: now,
         }

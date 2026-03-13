@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { Content, TYPE_LABELS } from '../types';
 
 interface Props {
@@ -121,10 +122,21 @@ export function Calendar({ onSelectContent, onCreateContent, refreshKey }: Props
                       e.stopPropagation();
                       onSelectContent(content);
                     }}
-                    className="text-xs p-1 rounded bg-primary-50 hover:bg-primary-100 truncate"
+                    className="text-xs p-1 rounded bg-primary-50 hover:bg-primary-100 group"
                     title={content.topic}
                   >
-                    {TYPE_LABELS[content.content_type].split(' ')[0]} {content.topic}
+                    <div className="flex items-center gap-1">
+                      {content.thumbnail_path ? (
+                        <img
+                          src={convertFileSrc(content.thumbnail_path)}
+                          alt=""
+                          className="w-6 h-6 object-cover rounded flex-shrink-0"
+                        />
+                      ) : (
+                        <span>{TYPE_LABELS[content.content_type].split(' ')[0]}</span>
+                      )}
+                      <span className="truncate">{content.topic}</span>
+                    </div>
                   </div>
                 ))}
               </div>
