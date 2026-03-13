@@ -11,14 +11,65 @@ pub struct Database {
     conn: Mutex<Connection>,
 }
 
+const DB_VERSION: i32 = 2;
+
 impl Database {
     pub fn new(path: PathBuf) -> Result<Self> {
         let conn = Connection::open(&path)?;
         let db = Self {
             conn: Mutex::new(conn),
         };
+        
+        if !db.check_schema_version()? {
+            drop(db);
+            std::fs::remove_file(&path)?;
+            let conn = Connection::open(&path)?;
+            let db = Self {
+                conn: Mutex::new(conn),
+            };
+            db.init_tables()?;
+            db.set_schema_version()?;
+            return Ok(db);
+        }
+        
         db.init_tables()?;
+        db.set_schema_version()?;
         Ok(db)
+    }
+    
+    fn check_schema_version(&self) -> Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        
+        let table_exists: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_version'",
+            [],
+            |row| row.get(0),
+        )?;
+        
+        if table_exists == 0 {
+            return Ok(false);
+        }
+        
+        let version: i32 = conn.query_row(
+            "SELECT version FROM schema_version WHERE id = 1",
+            [],
+            |row| row.get(0),
+        ).unwrap_or(0);
+        
+        Ok(version >= DB_VERSION)
+    }
+    
+    fn set_schema_version(&self) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS schema_version (id INTEGER PRIMARY KEY CHECK (id = 1), version INTEGER NOT NULL)",
+            [],
+        )?;
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_version (id, version) VALUES (1, ?1)",
+            params![DB_VERSION],
+        )?;
+        Ok(())
     }
 
     fn init_tables(&self) -> Result<()> {
