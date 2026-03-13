@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { Content, TYPE_LABELS } from '../types';
+import { Content, STATUS_LABELS, TYPE_LABELS } from '../types';
 
 interface Props {
   onSelectContent: (content: Content) => void;
@@ -67,6 +67,14 @@ export function Calendar({ onSelectContent, onCreateContent, refreshKey }: Props
     month === today.getMonth() + 1 &&
     day === today.getDate();
 
+  const statusStyles: Record<Content['status'], string> = {
+    planned: 'bg-amber-100 text-amber-700',
+    ai_generated: 'bg-blue-100 text-blue-700',
+    ready_to_post: 'bg-emerald-100 text-emerald-700',
+    posted: 'bg-gray-200 text-gray-700',
+    skipped: 'bg-rose-100 text-rose-700',
+  };
+
   return (
     <div className="bg-white rounded-lg shadow">
       <div className="flex items-center justify-between p-4 border-b">
@@ -107,42 +115,69 @@ export function Calendar({ onSelectContent, onCreateContent, refreshKey }: Props
               }`}
               onClick={() => onCreateContent(formatDate(day))}
             >
-              <div
-                className={`text-sm mb-1 ${
-                  isToday(day) ? 'font-bold text-primary-600' : 'text-gray-600'
-                }`}
-              >
-                {day}
-              </div>
-              <div className="space-y-1">
-                {dayContents.map(content => (
-                  <div
-                    key={content.id}
-                    onClick={e => {
-                      e.stopPropagation();
-                      onSelectContent(content);
-                    }}
-                    className="text-xs p-1 rounded bg-primary-50 hover:bg-primary-100 group"
-                    title={content.topic}
-                  >
-                    <div className="flex items-center gap-1">
-                      {content.thumbnail_path ? (
-                        <img
-                          src={convertFileSrc(content.thumbnail_path)}
-                          alt=""
-                          className="w-6 h-6 object-cover rounded flex-shrink-0"
-                        />
-                      ) : (
-                        <span>{TYPE_LABELS[content.content_type].split(' ')[0]}</span>
-                      )}
-                      <span className="truncate">{content.topic}</span>
-                    </div>
+                <div
+                  className={`text-sm mb-1 ${
+                    isToday(day) ? 'font-bold text-primary-600' : 'text-gray-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>{day}</span>
+                    {dayContents.length > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                        {dayContents.length}件
+                      </span>
+                    )}
                   </div>
-                ))}
+                </div>
+                <div className="space-y-1">
+                  {dayContents.slice(0, 2).map(content => (
+                    <div
+                      key={content.id}
+                      onClick={e => {
+                        e.stopPropagation();
+                        onSelectContent(content);
+                      }}
+                      className="text-xs p-1 rounded bg-primary-50 hover:bg-primary-100 border border-primary-100 group"
+                      title={content.topic}
+                    >
+                      <div className="flex items-center gap-1 mb-1">
+                        {content.thumbnail_path ? (
+                          <img
+                            src={convertFileSrc(content.thumbnail_path)}
+                            alt=""
+                            className="w-6 h-6 object-cover rounded flex-shrink-0"
+                        />
+                        ) : (
+                          <span>{TYPE_LABELS[content.content_type].split(' ')[0]}</span>
+                        )}
+                        <span className="truncate">{content.topic}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[10px] text-gray-500 truncate">
+                          {TYPE_LABELS[content.content_type]}
+                        </span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${statusStyles[content.status]}`}>
+                          {STATUS_LABELS[content.status].replace(/^\S+\s/, '')}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {dayContents.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onSelectContent(dayContents[0]);
+                      }}
+                      className="w-full text-left text-[11px] text-primary-700 px-1 py-0.5 hover:underline"
+                    >
+                      +{dayContents.length - 2}件を表示
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
     </div>
   );
