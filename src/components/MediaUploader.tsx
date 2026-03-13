@@ -13,6 +13,22 @@ export function MediaUploader({ content, onMediaChange }: Props) {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
+  const uploadFromPath = useCallback(async (filePath: string) => {
+    setIsUploading(true);
+    try {
+      const updated = await invoke<Content>('upload_media', {
+        contentId: content.id,
+        filePath,
+      });
+      onMediaChange(updated);
+    } catch (e) {
+      console.error('Failed to upload:', e);
+      alert(`アップロードに失敗しました: ${e}`);
+    } finally {
+      setIsUploading(false);
+    }
+  }, [content.id, onMediaChange]);
+
   const handleSelectFile = useCallback(async () => {
     try {
       const selected = await open({
@@ -23,21 +39,14 @@ export function MediaUploader({ content, onMediaChange }: Props) {
         }]
       });
 
-      if (selected) {
-        setIsUploading(true);
-        const updated = await invoke<Content>('upload_media', {
-          contentId: content.id,
-          filePath: selected,
-        });
-        onMediaChange(updated);
+      if (typeof selected === 'string') {
+        await uploadFromPath(selected);
       }
     } catch (e) {
       console.error('Failed to upload:', e);
       alert(`アップロードに失敗しました: ${e}`);
-    } finally {
-      setIsUploading(false);
     }
-  }, [content.id, onMediaChange]);
+  }, [uploadFromPath]);
 
   const handleRemove = useCallback(async () => {
     if (!confirm('素材を削除しますか？')) return;
@@ -64,44 +73,52 @@ export function MediaUploader({ content, onMediaChange }: Props) {
   if (content.media_path) {
     return (
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          素材
-        </label>
-        <div className="relative group">
+        <div className="flex items-center justify-between">
+          <label className="block text-sm font-medium text-gray-700">素材</label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSelectFile}
+              disabled={isUploading}
+              className="text-xs px-3 py-1.5 bg-primary-500 text-white rounded-md hover:bg-primary-600 disabled:opacity-50"
+            >
+              置き換え
+            </button>
+            <button
+              type="button"
+              onClick={handleRemove}
+              className="text-xs px-3 py-1.5 border border-red-200 text-red-600 rounded-md hover:bg-red-50"
+            >
+              削除
+            </button>
+          </div>
+        </div>
+
+        <div className="relative group rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
           {content.media_type === 'video' ? (
-            <div className="relative">
-              {thumbnailSrc ? (
-                <img
-                  src={thumbnailSrc}
-                  alt="Video thumbnail"
-                  className="w-full h-40 object-cover rounded-lg"
-                />
-              ) : (
-                <div className="w-full h-40 bg-gray-200 rounded-lg flex items-center justify-center">
-                  <span className="text-4xl">🎬</span>
-                </div>
-              )}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-white text-4xl drop-shadow-lg">▶</span>
-              </div>
+            <div className="space-y-2 p-2">
+              <video
+                src={mediaSrc || undefined}
+                poster={thumbnailSrc || undefined}
+                controls
+                className="w-full h-48 bg-black rounded-lg object-contain"
+              />
+              <p className="text-[11px] text-gray-500">動画プレビュー</p>
             </div>
           ) : (
             <img
               src={mediaSrc || thumbnailSrc || ''}
               alt="Media preview"
-              className="w-full h-40 object-cover rounded-lg"
+              className="w-full h-48 object-cover"
             />
           )}
-          <button
-            onClick={handleRemove}
-            className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            ✕
-          </button>
         </div>
-        <p className="text-xs text-gray-500 truncate">
-          {content.media_path?.split('/').pop()}
-        </p>
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <span className="truncate">{content.media_path?.split('/').pop()}</span>
+          <span className="ml-2 px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+            {content.media_type === 'video' ? '動画' : '画像'}
+          </span>
+        </div>
       </div>
     );
   }
@@ -118,6 +135,17 @@ export function MediaUploader({ content, onMediaChange }: Props) {
           setIsDragOver(true);
         }}
         onDragLeave={() => setIsDragOver(false)}
+        onDrop={async (e) => {
+          e.preventDefault();
+          setIsDragOver(false);
+          const droppedFile = e.dataTransfer.files[0] as (File & { path?: string }) | undefined;
+          const droppedPath = droppedFile?.path;
+          if (!droppedPath) {
+            alert('ドラッグ&ドロップのファイルパスを取得できませんでした。クリックして選択してください。');
+            return;
+          }
+          await uploadFromPath(droppedPath);
+        }}
         className={`
           border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
           transition-colors

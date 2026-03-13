@@ -22,7 +22,7 @@ export function ContentEditor({ content, selectedDate, onSave, onClose }: Props)
   const [hasClaudeKey, setHasClaudeKey] = useState(false);
   const [currentContent, setCurrentContent] = useState<Content | null>(content);
 
-  const isEditing = !!content;
+  const isEditing = !!currentContent;
 
   useEffect(() => {
     checkClaudeKey();
@@ -55,18 +55,20 @@ export function ContentEditor({ content, selectedDate, onSave, onClose }: Props)
 
   async function handleSave() {
     try {
-      if (isEditing && content) {
+      if (currentContent) {
+        const updatedContent: Content = {
+          ...currentContent,
+          topic,
+          content_type: contentType,
+          caption: caption || null,
+          hashtags: hashtags || null,
+          status,
+          notes: notes || null,
+        };
         await invoke('update_content', {
-          content: {
-            ...content,
-            topic,
-            content_type: contentType,
-            caption: caption || null,
-            hashtags: hashtags || null,
-            status,
-            notes: notes || null,
-          },
+          content: updatedContent,
         });
+        setCurrentContent(updatedContent);
       } else if (selectedDate) {
         await invoke('create_content', {
           date: selectedDate,
@@ -82,11 +84,11 @@ export function ContentEditor({ content, selectedDate, onSave, onClose }: Props)
   }
 
   async function handleDelete() {
-    if (!content) return;
+    if (!currentContent) return;
     if (!confirm('この投稿を削除しますか？')) return;
 
     try {
-      await invoke('delete_content', { id: content.id });
+      await invoke('delete_content', { id: currentContent.id });
       onSave();
     } catch (e) {
       console.error('Failed to delete:', e);
@@ -95,13 +97,14 @@ export function ContentEditor({ content, selectedDate, onSave, onClose }: Props)
   }
 
   async function handleGenerateCaption() {
-    if (!content) return;
+    if (!currentContent) return;
     setIsGenerating(true);
     try {
-      const updated = await invoke<Content>('generate_caption', { contentId: content.id });
+      const updated = await invoke<Content>('generate_caption', { contentId: currentContent.id });
       setCaption(updated.caption || '');
       setHashtags(updated.hashtags || '');
       setStatus(updated.status);
+      setCurrentContent(updated);
     } catch (e) {
       console.error('Failed to generate:', e);
       alert(`文案生成に失敗しました: ${e}`);
@@ -111,9 +114,9 @@ export function ContentEditor({ content, selectedDate, onSave, onClose }: Props)
   }
 
   async function handleMarkPosted() {
-    if (!content) return;
+    if (!currentContent) return;
     try {
-      await invoke('mark_as_posted', { contentId: content.id });
+      await invoke('mark_as_posted', { contentId: currentContent.id });
       onSave();
     } catch (e) {
       console.error('Failed to mark as posted:', e);
@@ -141,11 +144,17 @@ export function ContentEditor({ content, selectedDate, onSave, onClose }: Props)
             </label>
             <input
               type="text"
-              value={content?.scheduled_date || selectedDate || ''}
+              value={currentContent?.scheduled_date || selectedDate || ''}
               disabled
               className="w-full px-3 py-2 border rounded-md bg-gray-50"
             />
           </div>
+
+          {isEditing && (
+            <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+              最終更新: {currentContent?.updated_at ? new Date(currentContent.updated_at).toLocaleString('ja-JP') : '-'}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
