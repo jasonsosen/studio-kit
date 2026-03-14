@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, Plus, Sparkles, Loader2 } from "lucide-react
 import { ContentEditor } from "@/components/ContentEditor"
 import { useStudio } from "@/lib/studio-context"
 import { createClient } from "@/lib/supabase/client"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 interface Post {
   id: string
@@ -25,6 +25,7 @@ export default function CalendarPage() {
   const [isLoadingPosts, setIsLoadingPosts] = useState(true)
 
   const supabase = createClient()
+  const router = useRouter()
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
@@ -140,14 +141,14 @@ export default function CalendarPage() {
       {/* Header - Responsive */}
       <div className="flex items-center justify-between mb-4 md:mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-gray-900">投稿カレンダー</h1>
-        <Link 
-          href="/weekly"
-          className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base"
+        <button 
+          onClick={() => router.push("/weekly")}
+          className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm md:text-base"
         >
           <Sparkles className="w-4 h-4" />
           <span className="hidden sm:inline">週間プラン生成</span>
           <span className="sm:hidden">生成</span>
-        </Link>
+        </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
