@@ -6,7 +6,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Studios table (one per user/business)
 CREATE TABLE studios (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   features TEXT,
@@ -18,7 +18,7 @@ CREATE TABLE studios (
 
 -- Posts table (Instagram posts)
 CREATE TABLE posts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   studio_id UUID REFERENCES studios(id) ON DELETE CASCADE NOT NULL,
   date DATE NOT NULL,
   topic TEXT NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE posts (
 
 -- AI Generations log (for cost tracking)
 CREATE TABLE ai_generations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   studio_id UUID REFERENCES studios(id) ON DELETE CASCADE NOT NULL,
   post_id UUID REFERENCES posts(id) ON DELETE SET NULL,
   model TEXT NOT NULL,
@@ -48,7 +48,7 @@ CREATE TABLE ai_generations (
 
 -- Media assets
 CREATE TABLE assets (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   studio_id UUID REFERENCES studios(id) ON DELETE CASCADE NOT NULL,
   filename TEXT NOT NULL,
   file_type TEXT NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE assets (
 
 -- Subtitle jobs
 CREATE TABLE subtitle_jobs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   studio_id UUID REFERENCES studios(id) ON DELETE CASCADE NOT NULL,
   asset_id UUID REFERENCES assets(id) ON DELETE CASCADE,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
@@ -73,7 +73,7 @@ CREATE TABLE subtitle_jobs (
 
 -- API Usage summary (daily aggregation)
 CREATE TABLE api_usage_daily (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   studio_id UUID REFERENCES studios(id) ON DELETE CASCADE NOT NULL,
   date DATE NOT NULL,
   model TEXT NOT NULL,
