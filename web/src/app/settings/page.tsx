@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Save, Loader2, LogOut, Plus, Trash2, Building2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useStudio } from "@/lib/studio-context"
 
-export default function SettingsPage() {
+function SettingsContent() {
   const { currentStudio, currentStudioId, refreshStudios, isLoading: studioLoading } = useStudio()
   const searchParams = useSearchParams()
   const isNewMode = searchParams.get("new") === "1"
@@ -341,5 +341,17 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    }>
+      <SettingsContent />
+    </Suspense>
   )
 }

@@ -58,7 +58,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       
       // Set current studio from localStorage or use first one
       const savedStudioId = localStorage.getItem("currentStudioId")
-      const validStudioId = data?.find(s => s.id === savedStudioId)?.id || data?.[0]?.id
+      const validStudioId = data?.find((s: Studio) => s.id === savedStudioId)?.id || data?.[0]?.id
       
       if (validStudioId) {
         setCurrentStudioId(validStudioId)
