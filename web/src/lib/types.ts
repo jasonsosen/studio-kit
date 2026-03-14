@@ -7,6 +7,8 @@ export interface Studio {
   features: string | null
   target_audience: string | null
   instagram_handle: string | null
+  tone: string | null  // friendly, professional, elegant, energetic, calm
+  hashtags: string | null
   created_at: string
   updated_at: string
 }

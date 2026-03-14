@@ -24,6 +24,10 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
 /* Prevent pull-to-refresh on iOS */
 html, body {
   overscroll-behavior: none;

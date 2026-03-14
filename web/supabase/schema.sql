@@ -4,7 +4,7 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Studios table (one per user/business)
+-- Studios table (multiple per user - one for each location/brand)
 CREATE TABLE studios (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -12,6 +12,8 @@ CREATE TABLE studios (
   features TEXT,
   target_audience TEXT,
   instagram_handle TEXT,
+  tone TEXT,  -- 文章のトーン: friendly, professional, elegant, energetic, calm
+  hashtags TEXT,  -- よく使うハッシュタグ
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
