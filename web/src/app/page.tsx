@@ -1,18 +1,30 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday } from "date-fns"
 import { ja } from "date-fns/locale"
-import { ChevronLeft, ChevronRight, Plus, Sparkles } from "lucide-react"
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Loader2 } from "lucide-react"
 import { ContentEditor } from "@/components/ContentEditor"
+import { useStudio } from "@/lib/studio-context"
+import { createClient } from "@/lib/supabase/client"
+import Link from "next/link"
 
-// Temporary mock data - will be replaced with database
-const mockPosts: Record<string, { topic: string; caption?: string; status: string }> = {}
+interface Post {
+  id: string
+  date: string
+  topic: string
+  caption: string | null
+  status: string
+}
 
 export default function CalendarPage() {
+  const { currentStudioId, isLoading: studioLoading } = useStudio()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [posts, setPosts] = useState(mockPosts)
+  const [posts, setPosts] = useState<Record<string, Post>>({})
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true)
+
+  const supabase = createClient()
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
@@ -21,6 +33,42 @@ export default function CalendarPage() {
   // Pad to start on Sunday
   const startDay = monthStart.getDay()
   const paddedDays = [...Array(startDay).fill(null), ...days]
+
+  // Fetch posts when studio or month changes
+  useEffect(() => {
+    if (!currentStudioId) {
+      setIsLoadingPosts(false)
+      return
+    }
+
+    async function fetchPosts() {
+      setIsLoadingPosts(true)
+      
+      const startDate = format(monthStart, "yyyy-MM-dd")
+      const endDate = format(monthEnd, "yyyy-MM-dd")
+
+      const { data, error } = await supabase
+        .from("posts")
+        .select("*")
+        .eq("studio_id", currentStudioId)
+        .gte("date", startDate)
+        .lte("date", endDate)
+
+      if (error) {
+        console.error("Error fetching posts:", error)
+      } else {
+        const postsMap: Record<string, Post> = {}
+        data?.forEach((post: Post) => {
+          postsMap[post.date] = post
+        })
+        setPosts(postsMap)
+      }
+      
+      setIsLoadingPosts(false)
+    }
+
+    fetchPosts()
+  }, [currentStudioId, currentDate])
 
   const prevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))
@@ -34,12 +82,57 @@ export default function CalendarPage() {
     setSelectedDate(format(date, "yyyy-MM-dd"))
   }
 
-  const handleSavePost = (date: string, topic: string, caption: string) => {
-    setPosts(prev => ({
-      ...prev,
-      [date]: { topic, caption, status: caption ? 'scheduled' : 'draft' }
-    }))
+  const handleSavePost = async (date: string, topic: string, caption: string) => {
+    if (!currentStudioId) return
+
+    const postData = {
+      studio_id: currentStudioId,
+      date,
+      topic,
+      caption: caption || null,
+      status: caption ? 'scheduled' : 'draft',
+    }
+
+    const existingPost = posts[date]
+
+    if (existingPost) {
+      // Update existing post
+      const { error } = await supabase
+        .from("posts")
+        .update(postData)
+        .eq("id", existingPost.id)
+
+      if (!error) {
+        setPosts(prev => ({
+          ...prev,
+          [date]: { ...existingPost, ...postData }
+        }))
+      }
+    } else {
+      // Insert new post
+      const { data, error } = await supabase
+        .from("posts")
+        .insert(postData)
+        .select()
+        .single()
+
+      if (!error && data) {
+        setPosts(prev => ({
+          ...prev,
+          [date]: data
+        }))
+      }
+    }
+
     setSelectedDate(null)
+  }
+
+  if (studioLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    )
   }
 
   return (
@@ -47,11 +140,14 @@ export default function CalendarPage() {
       {/* Header - Responsive */}
       <div className="flex items-center justify-between mb-4 md:mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-gray-900">投稿カレンダー</h1>
-        <button className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base">
+        <Link 
+          href="/weekly"
+          className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base"
+        >
           <Sparkles className="w-4 h-4" />
           <span className="hidden sm:inline">週間プラン生成</span>
           <span className="sm:hidden">生成</span>
-        </button>
+        </Link>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -88,8 +184,15 @@ export default function CalendarPage() {
           ))}
         </div>
 
+        {/* Loading overlay */}
+        {isLoadingPosts && (
+          <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+          </div>
+        )}
+
         {/* Calendar Grid */}
-        <div className="grid grid-cols-7">
+        <div className="grid grid-cols-7 relative">
           {paddedDays.map((day, index) => {
             if (!day) {
               return <div key={`empty-${index}`} className="h-16 md:h-28 border-b border-r border-gray-100 bg-gray-50/50" />
