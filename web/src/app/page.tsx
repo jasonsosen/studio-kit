@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO } from "date-fns"
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday } from "date-fns"
 import { ja } from "date-fns/locale"
 import { ChevronLeft, ChevronRight, Plus, Sparkles } from "lucide-react"
 import { ContentEditor } from "@/components/ContentEditor"
@@ -44,29 +44,31 @@ export default function CalendarPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">投稿カレンダー</h1>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+      {/* Header - Responsive */}
+      <div className="flex items-center justify-between mb-4 md:mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">投稿カレンダー</h1>
+        <button className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base">
           <Sparkles className="w-4 h-4" />
-          週間プラン生成
+          <span className="hidden sm:inline">週間プラン生成</span>
+          <span className="sm:hidden">生成</span>
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Calendar Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between p-3 md:p-4 border-b border-gray-200">
           <button
             onClick={prevMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors active:bg-gray-200"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <h2 className="text-lg font-semibold">
+          <h2 className="text-base md:text-lg font-semibold">
             {format(currentDate, "yyyy年 M月", { locale: ja })}
           </h2>
           <button
             onClick={nextMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors active:bg-gray-200"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
@@ -77,7 +79,7 @@ export default function CalendarPage() {
           {["日", "月", "火", "水", "木", "金", "土"].map((day, i) => (
             <div
               key={day}
-              className={`p-3 text-center text-sm font-medium ${
+              className={`py-2 md:p-3 text-center text-xs md:text-sm font-medium ${
                 i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-gray-700"
               }`}
             >
@@ -90,7 +92,7 @@ export default function CalendarPage() {
         <div className="grid grid-cols-7">
           {paddedDays.map((day, index) => {
             if (!day) {
-              return <div key={`empty-${index}`} className="h-28 border-b border-r border-gray-100" />
+              return <div key={`empty-${index}`} className="h-16 md:h-28 border-b border-r border-gray-100 bg-gray-50/50" />
             }
 
             const dateStr = format(day, "yyyy-MM-dd")
@@ -101,12 +103,12 @@ export default function CalendarPage() {
               <div
                 key={dateStr}
                 onClick={() => handleDateClick(day)}
-                className={`h-28 p-2 border-b border-r border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
+                className={`h-16 md:h-28 p-1 md:p-2 border-b border-r border-gray-100 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors ${
                   !isSameMonth(day, currentDate) ? "bg-gray-50 text-gray-400" : ""
                 }`}
               >
-                <div className={`text-sm font-medium mb-1 ${
-                  isToday(day) ? "w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center" :
+                <div className={`text-xs md:text-sm font-medium mb-0.5 md:mb-1 ${
+                  isToday(day) ? "w-5 h-5 md:w-6 md:h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] md:text-sm" :
                   dayOfWeek === 0 ? "text-red-500" :
                   dayOfWeek === 6 ? "text-blue-500" : ""
                 }`}>
@@ -114,14 +116,16 @@ export default function CalendarPage() {
                 </div>
                 
                 {post ? (
-                  <div className={`text-xs p-1.5 rounded ${
+                  <div className={`text-[10px] md:text-xs p-1 md:p-1.5 rounded ${
                     post.caption ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
                   }`}>
                     <div className="truncate font-medium">{post.topic}</div>
-                    {post.caption && <div className="truncate text-green-600">✓ 生成済み</div>}
+                    <div className="hidden md:block truncate text-green-600">
+                      {post.caption && "✓ 生成済み"}
+                    </div>
                   </div>
                 ) : (
-                  <div className="text-xs text-gray-400 flex items-center gap-1 mt-2">
+                  <div className="hidden md:flex text-xs text-gray-400 items-center gap-1 mt-2">
                     <Plus className="w-3 h-3" />
                     追加
                   </div>

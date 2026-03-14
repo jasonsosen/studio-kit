@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { X, Sparkles, Loader2, Copy, Check } from "lucide-react"
 import { format, parseISO } from "date-fns"
 import { ja } from "date-fns/locale"
@@ -25,6 +25,14 @@ export function ContentEditor({
   const [isGenerating, setIsGenerating] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
 
   const handleGenerate = async () => {
     if (!topic.trim()) {
@@ -68,21 +76,22 @@ export function ContentEditor({
   const formattedDate = format(parseISO(date), "M月d日(E)", { locale: ja })
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50">
+      {/* Mobile: slide up from bottom, Desktop: centered modal */}
+      <div className="bg-white w-full md:rounded-xl shadow-xl md:w-full md:max-w-2xl max-h-[95vh] md:max-h-[90vh] overflow-hidden rounded-t-2xl md:rounded-xl animate-in slide-in-from-bottom md:slide-in-from-bottom-0 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 sticky top-0 bg-white">
           <h2 className="text-lg font-semibold">{formattedDate} の投稿</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(95vh-140px)] md:max-h-[calc(90vh-140px)]">
           {/* Topic Input */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -93,7 +102,7 @@ export function ContentEditor({
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               placeholder="例: ピラティスで姿勢改善"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
             />
           </div>
 
@@ -101,7 +110,7 @@ export function ContentEditor({
           <button
             onClick={handleGenerate}
             disabled={isGenerating || !topic.trim()}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="flex items-center justify-center gap-2 w-full md:w-auto px-4 py-3 md:py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {isGenerating ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -126,7 +135,7 @@ export function ContentEditor({
               {caption && (
                 <button
                   onClick={handleCopy}
-                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 active:text-gray-900"
                 >
                   {copied ? (
                     <>
@@ -146,23 +155,23 @@ export function ContentEditor({
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               placeholder="AIで生成、または直接入力..."
-              rows={10}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              rows={8}
+              className="w-full px-3 py-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-base"
             />
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-4 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center gap-3 p-4 border-t border-gray-200 bg-gray-50 safe-area-bottom">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+            className="flex-1 md:flex-none px-4 py-3 md:py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 active:bg-gray-400 rounded-lg transition-colors font-medium"
           >
             キャンセル
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex-1 md:flex-none px-4 py-3 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium"
           >
             保存
           </button>
